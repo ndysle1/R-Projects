@@ -3,321 +3,539 @@
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% #
 
 # This script builds and evaluates models
-# Final models are chosen at the end of the script
+# Final models are identified at the end of the script
 
 
-# Packages/Functions ----
+## Packages/Functions ----
 source('Malaria/functions/malaria_functions.R')
+library(MASS)
+library(broom)
+library(stargazer)
 
 
-##Building the Logit Model##
-##For the Children Dataset##
-glm.fitkids <- glm(H22 ~ V025 + V113 + V128 + V129 + V460 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag1 + DeforestLag2, data = dfkids, family =binomial)
+## Loading Data ----
+dfadults <- fread(paste0(dir$final,'dfadults.csv'))
+dfkids   <- fread(paste0(dir$final,'dfkids.csv'))
 
-step.modelH22 <- stepAIC(glm.fitkids, direction = "both", trace = FALSE)
-summary(step.modelH22)
 
-car::vif(step.modelH22)
+## H22 (Fever in the past 2 weeks) ----
+vars.22 <- colnames(dfkids[,.(V025,V113,V128,V129,V460
+                           ,Tana,Fianar,Mahaj,Toli,Diego
+                           ,Temp,Temp2,Precip,Precip2
+                           ,DeforestLag1,DeforestLag2,DeforestLag3)])
 
-glm.fitkids1 <- glm(H22 ~ V025 + V113 + V128 + V129 + V460 + Tana + Fianar + Mahaj + Toli + Diego  + Temp2 + Precip2 + DeforestLag1, data = dfkids, family =binomial)
+glm.H22 <- Modeling(data=dfkids, d.var='H22', i.vars=vars.22, aic=FALSE)
+step.H22 <- Modeling(data=dfkids, d.var='H22', i.vars=vars.22, aic=TRUE)
 
-glm.fitkids2 <- glm(H22 ~ V025 + V113 + V128 + V129 + V460 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag2, data = dfkids, family =binomial)
+summary(glm.H22)
+summary(step.H22)
+car::vif(glm.H22)
+car::vif(step.H22)
 
-glm.fitkids3 <- glm(H22 ~ V025 + V113 + V128 + V129 + V460 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag3, data = dfkids, family =binomial)
 
-summary(glm.fitkids)
-summary(glm.fitkids1)
-summary(glm.fitkids2)
-summary(glm.fitkids3)
+logLik(glm.H22)
+logLik(step.H22)
 
-##Cook's Distance##
-plot(glm.fitkids, which = 4, id.n = 3)
+# Cook's Distance
+plot(glm.H22)
 
-model.data <- augment(glm.fitkids) %>%
+model.data <- augment(glm.H22) %>%
   mutate(index = 1:n())
-model.data %>% top_n(3, .cooksd)
-ggplot(model.data, aes(index, .std.resid)) + geom_point(aes(color = H22), alpha = .5) + theme(plot.title = element_text(hjust = 0.5)) + labs(x="Index", y="Standard Residual", color="Fever", title="Cook's Distance")
 
-confint(glm.fitkids) ##CIs using log-likelihood##
-confint.default(glm.fitkids) ##CIs using standard errors##
+ggplot(model.data, aes(index, .std.resid)) + 
+  geom_point(aes(color = H22), alpha = .5) + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  labs(
+  x = "Index",
+  y = "Standard Residual",
+  color = "Fever",
+  title = "Cook's Distance"
+)
 
-##Kids Deforestation 1##
+# No observations have a cook's distance that 
+# exceeds 3 so all observations were retained in
+# this dataset
 
-step.model1 <- stepAIC(glm.fitkids1, direction = "both", trace = FALSE)
-summary(step.model1)
+confint(glm.H22) 
 
-exp(coef(step.model1))
-exp(cbind(OR = coef(step.model1), confint(step.model1)))
+# H22 Deforestation Lag 1 Only
+glm1.H22 <- Modeling(data=dfkids
+                      , d.var='H22'
+                      , i.vars=vars.22[!vars.22 %in% c('DeforestLag2','DeforestLag3')]
+                      , aic=FALSE)
 
-logLik(step.modelH22)
-logLik(step.model1)
-logLik(glm.fitkids)
+step1.H22 <- Modeling(data=dfkids
+                      , d.var='H22'
+                      , i.vars=vars.22[!vars.22 %in% c('DeforestLag2','DeforestLag3')]
+                      , aic=TRUE)
+summary(glm1.H22)
+summary(step1.H22)
+car::vif(glm1.H22)
+car::vif(step1.H22)
 
-glm.probs1 <- predict(step.model1,type = "response")
+exp(coef(step1.H22))
+exp(cbind(coef = coef(step1.H22), confint(step1.H22)))
+
+logLik(step1.H22)
+
+glm.probs1 <- predict(step1.H22,type = "response")
 glm.probs1[50:55]
 mean(glm.probs1)
 
 glm.pred1 <- ifelse(glm.probs1 > 0.15, 1, 0)
 
-attach(dfkids)
-table(glm.pred1,H22)
+table(glm.pred1,dfkids$H22)
 
-mean(glm.pred1 == H22)
+mean(glm.pred1 == dfkids$H22)
 
-##Kids Deforestation 2##
-step.model2 <- stepAIC(glm.fitkids2, direction = "both", trace = FALSE)
-summary(step.model2)
+# H22 Deforestation Lag 2 Only
+glm2.H22 <- Modeling(data=dfkids
+                      , d.var='H22'
+                      , i.vars=vars.22[!vars.22 %in% c('DeforestLag1','DeforestLag3')]
+                      , aic=FALSE)
 
-exp(coef(step.model2))
-exp(cbind(OR = coef(step.model2), confint(step.model2)))
+step2.H22 <- Modeling(data=dfkids
+                      , d.var='H22'
+                      , i.vars=vars.22[!vars.22 %in% c('DeforestLag1','DeforestLag3')]
+                      , aic=TRUE)
+summary(glm2.H22)
+summary(step2.H22)
+car::vif(glm2.H22)
+car::vif(step2.H22)
 
-logLik(step.model2)
-logLik(glm.fitkids)
+exp(coef(step2.H22))
+exp(cbind(coef = coef(step2.H22), confint(step2.H22)))
 
-glm.probs2 <- predict(step.model2,type = "response")
+logLik(step2.H22)
+
+glm.probs2 <- predict(step2.H22,type = "response")
 glm.probs2[50:55]
 mean(glm.probs2)
 
 glm.pred2 <- ifelse(glm.probs2 > 0.15, 1, 0)
 
-attach(dfkids)
-table(glm.pred2,H22)
+table(glm.pred2,dfkids$H22)
 
-mean(glm.pred2 == H22)
+mean(glm.pred2 == dfkids$H22)
 
-##Kids Deforestation 3##
-step.model3 <- stepAIC(glm.fitkids3, direction = "both", trace = FALSE)
-summary(step.model3)
+# H22 Deforestation Lag 3 Only
+glm3.H22 <- Modeling(data=dfkids
+                      , d.var='H22'
+                      , i.vars=vars.22[!vars.22 %in% c('DeforestLag1','DeforestLag2')]
+                      , aic=FALSE)
 
-exp(coef(step.model3))
-exp(cbind(OR = coef(step.model3), confint(step.model3)))
+step3.H22 <- Modeling(data=dfkids
+                      , d.var='H22'
+                      , i.vars=vars.22[!vars.22 %in% c('DeforestLag1','DeforestLag2')]
+                      , aic=TRUE)
+summary(glm3.H22)
+summary(step3.H22)
+car::vif(glm3.H22)
+car::vif(step3.H22)
 
-logLik(step.model3)
-logLik(glm.fitkids)
+exp(coef(step3.H22))
+exp(cbind(coef = coef(step3.H22), confint(step3.H22)))
 
-glm.probs3 <- predict(step.model3,type = "response")
+logLik(step3.H22)
+
+glm.probs3 <- predict(step3.H22,type = "response")
 glm.probs3[50:55]
 mean(glm.probs3)
 
 glm.pred3 <- ifelse(glm.probs3 > 0.15, 1, 0)
 
-attach(dfkids)
-table(glm.pred3,H22)
+table(glm.pred3,dfkids$H22)
 
-mean(glm.pred3 == H22)
+mean(glm.pred3 == dfkids$H22)
 
-##For the Adult Dataset##
-##HML32##
-glm.fitadultsa <- glm(HML32 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag1 + DeforestLag2 + DeforestLag3, data = dfadults, family =binomial)
-summary(glm.fitadultsa)
 
-step.modelHML32 <- stepAIC(glm.fitadultsa, direction = "both", trace = FALSE)
-summary(step.modelHML32)
+## HML32 (Rapid Test) ----
+vars.32 <- colnames(dfadults[,.(HV025,HV201,HV214,HV215,HV228,HV253
+                           ,Tana,Fianar,Mahaj,Toli,Diego
+                           ,Temp,Temp2,Precip,Precip2
+                           ,DeforestLag1,DeforestLag2,DeforestLag3)])
 
-car::vif(step.modelHML32)
+glm.HML32 <- Modeling(data=dfadults, d.var='HML32', i.vars=vars.32, aic=FALSE)
+step.HML32 <- Modeling(data=dfadults, d.var='HML32', i.vars=vars.32, aic=TRUE)
 
-glm.fitadults23a <- glm(HML32 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Temp + Precip2 + DeforestLag2 + DeforestLag3, data = dfadults, family =binomial) 
-##Left out Tomasina##
+summary(glm.HML32)
+summary(step.HML32)
+car::vif(glm.HML32)
+car::vif(step.HML32)
 
-summary(glm.fitadults23a)
 
-car::vif(glm.fitadults23a)
+logLik(glm.HML32)
+logLik(step.HML32)
 
-glm.fitadults1a <- glm(HML32 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag1, data = dfadults, family =binomial)
+# Cook's Distance
+plot(glm.HML32)
 
-glm.fitadults2a <- glm(HML32 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag2, data = dfadults, family =binomial)
-
-glm.fitadults3a <- glm(HML32 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag3, data = dfadults, family =binomial)
-
-summary(glm.fitadults1a)
-summary(glm.fitadults2a)
-summary(glm.fitadults3a)
-
-logLik(glm.fitadultsa)
-logLik(glm.fitadults1a)
-logLik(glm.fitadults2a)
-logLik(glm.fitadults3a)
-
-##Cook's Distance##
-plot(glm.fitadultsa, which = 4, id.n = 3)
-
-model.data <- augment(glm.fitadultsa) %>%
+model.data <- augment(glm.HML32) %>%
   mutate(index = 1:n())
-model.data %>% top_n(3, .cooksd)
-ggplot(model.data, aes(index, .std.resid)) + geom_point(aes(color = HML32), alpha = .5) + theme(plot.title = element_text(hjust = 0.5)) + labs(x="Index", y="Standard Residual", color="Rapid Tests", title="Cook's Distance")
+
+ggplot(model.data, aes(index, .std.resid)) + 
+  geom_point(aes(color = HML32), alpha = .5) + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  labs(
+  x = "Index",
+  y = "Standard Residual",
+  color = "Rapid Test",
+  title = "Cook's Distance"
+)
+
+# Due to the small number of observations that exceeded
+# a Cook's distance of 3 and their proximity to 3,
+# all observations were retained in the dataset
+
+confint(glm.HML32)
+
+# HML32 Deforestation Lag 1 Only
+glm1.HML32 <- Modeling(data=dfadults
+                     , d.var='HML32'
+                     , i.vars=vars.32[!vars.32 %in% c('DeforestLag2','DeforestLag3')]
+                     , aic=FALSE)
+
+step1.HML32 <- Modeling(data=dfadults
+                      , d.var='HML32'
+                      , i.vars=vars.32[!vars.32 %in% c('DeforestLag2','DeforestLag3')]
+                      , aic=TRUE)
+summary(glm1.HML32)
+summary(step1.HML32)
+car::vif(glm1.HML32)
+car::vif(step1.HML32)
+
+exp(coef(step1.HML32))
+exp(cbind(coef = coef(step1.HML32), confint(step1.HML32)))
+
+logLik(step1.HML32)
+
+glm.probs1 <- predict(step1.HML32,type = "response")
+glm.probs1[50:55]
+mean(glm.probs1)
+
+glm.pred1 <- ifelse(glm.probs1 > 0.15, 1, 0)
+
+table(glm.pred1,dfadults$HML32)
+
+mean(glm.pred1 == dfadults$HML32)
+
+# HML32 Deforestation Lag 2 Only
+glm2.HML32 <- Modeling(data=dfadults
+                     , d.var='HML32'
+                     , i.vars=vars.32[!vars.32 %in% c('DeforestLag1','DeforestLag3')]
+                     , aic=FALSE)
+
+step2.HML32 <- Modeling(data=dfadults
+                      , d.var='HML32'
+                      , i.vars=vars.32[!vars.32 %in% c('DeforestLag1','DeforestLag3')]
+                      , aic=TRUE)
+summary(glm2.HML32)
+summary(step2.HML32)
+car::vif(glm2.HML32)
+car::vif(step2.HML32)
+
+exp(coef(step2.HML32))
+exp(cbind(coef = coef(step2.HML32), confint(step2.HML32)))
+
+logLik(step2.HML32)
+
+glm.probs2 <- predict(step2.HML32,type = "response")
+glm.probs2[50:55]
+mean(glm.probs2)
+
+glm.pred2 <- ifelse(glm.probs2 > 0.15, 1, 0)
+
+table(glm.pred2,dfadults$HML32)
+
+mean(glm.pred2 == dfadults$HML32)
+
+# HML32 Deforestation Lag 3 Only
+glm3.HML32 <- Modeling(data=dfadults
+                     , d.var='HML32'
+                     , i.vars=vars.32[!vars.32 %in% c('DeforestLag1','DeforestLag2')]
+                     , aic=FALSE)
+
+step3.HML32 <- Modeling(data=dfadults
+                      , d.var='HML32'
+                      , i.vars=vars.32[!vars.32 %in% c('DeforestLag1','DeforestLag2')]
+                      , aic=TRUE)
+summary(glm3.HML32)
+summary(step3.HML32)
+car::vif(glm3.HML32)
+car::vif(step3.HML32)
+
+exp(coef(step3.HML32))
+exp(cbind(coef = coef(step3.HML32), confint(step3.HML32)))
+
+logLik(step3.HML32)
+
+glm.probs3 <- predict(step3.HML32,type = "response")
+glm.probs3[50:55]
+mean(glm.probs3)
+
+glm.pred3 <- ifelse(glm.probs3 > 0.15, 1, 0)
+
+table(glm.pred3,dfadults$HML32)
+
+mean(glm.pred3 == dfadults$HML32)
 
 
-##Deforestation 1 Lag##
-step.model1a <- stepAIC(glm.fitadults1a, direction = "both", trace = FALSE)
-summary(step.model1a)
+## HML35 (Blood Smear) ----
+vars.35 <- colnames(dfadults[,.(HV025,HV201,HV214,HV215,HV228,HV253
+                                ,Tana,Fianar,Mahaj,Toli,Diego
+                                ,Temp,Temp2,Precip,Precip2
+                                ,DeforestLag1,DeforestLag2,DeforestLag3)])
 
-logLik(step.model1a)
+glm.HML35 <- Modeling(data=dfadults, d.var='HML35', i.vars=vars.35, aic=FALSE)
+step.HML35 <- Modeling(data=dfadults, d.var='HML35', i.vars=vars.35, aic=TRUE)
 
-exp(coef(step.model1a))
-exp(cbind(OR = coef(step.model1a), confint(step.model1a)))
-
-##Deforestation 2 Lag##
-step.model2a <- stepAIC(glm.fitadults2a, direction = "both", trace = FALSE)
-summary(step.model2a)
-
-car::vif(step.model2a)
-
-logLik(step.model2a)
-
-exp(coef(step.model2a))
-exp(cbind(OR = coef(step.model2a), confint(step.model2a)))
-
-##Deforestation 3 Lag##
-step.model3a <- stepAIC(glm.fitadults3a, direction = "both", trace = FALSE)
-summary(step.model3a)
-
-logLik(step.model3a)
-
-exp(coef(step.model3a))
-exp(cbind(OR = coef(step.model3a), confint(step.model3a)))
-
-##HML35##
-glm.fitadultsb <- glm(HML35 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag1 + DeforestLag2 + DeforestLag3, data = dfadults, family =binomial)
-summary(glm.fitadultsb)
-
-step.modelHML35 <- stepAIC(glm.fitadultsb, direction = "both", trace = FALSE)
-summary(step.modelHML35)
-
-car::vif(step.modelHML35)
+summary(glm.HML35)
+summary(step.HML35)
+car::vif(glm.HML35)
+car::vif(step.HML35)
 
 
-glm.fitadults23b <- glm(HML35 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Temp + Precip2 + DeforestLag2 + DeforestLag3, data = dfadults, family =binomial)
-summary(glm.fitadults23b)
+logLik(glm.HML35)
+logLik(step.HML35)
 
-car::vif(glm.fitadults23b)
+# Cook's Distance
+plot(glm.HML35)
 
-
-glm.fitadults1b <- glm(HML35 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag1, data = dfadults, family =binomial)
-
-glm.fitadults2b <- glm(HML35 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag2, data = dfadults, family =binomial)
-
-glm.fitadults3b <- glm(HML35 ~ HV025 + HV201 + HV214 + HV215 + HV228 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Tomas + Temp + Temp2 + Precip + Precip2 + DeforestLag3, data = dfadults, family =binomial)
-
-##Cook's Distance##
-plot(glm.fitadultsb, which = 4, id.n = 3)
-
-model.data <- augment(glm.fitadultsb) %>%
+model.data <- augment(glm.HML35) %>%
   mutate(index = 1:n())
-model.data %>% top_n(3, .cooksd)
-ggplot(model.data, aes(index, .std.resid)) + geom_point(aes(color = HML35), alpha = .5) + theme(plot.title = element_text(hjust = 0.5)) + labs(x="Index", y="Standard Residual", color="Blood Smear", title="Cook's Distance")
 
-##Deforestation 1 Lag##
-step.model1b <- stepAIC(glm.fitadults1b, direction = "both", trace = FALSE)
-summary(step.model1b)
+ggplot(model.data, aes(index, .std.resid)) + 
+  geom_point(aes(color = HML35), alpha = .5) + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  labs(
+  x = "Index",
+  y = "Standard Residual",
+  color = "Blood Test",
+  title = "Cook's Distance"
+)
 
-logLik(step.model1b)
+# Due to the small number of observations that exceeded
+# a Cook's distance of 3 and their proximity to 3,
+# all observations were retained in the dataset
 
-exp(coef(step.model1b))
-exp(cbind(OR = coef(step.model1b), confint(step.model1b)))
+confint(glm.HML35)
 
-##Deforestation 2 Lag##
-step.model2b <- stepAIC(glm.fitadults2b, direction = "both", trace = FALSE)
-summary(step.model2b)
+# HML35 Deforestation Lag 1 Only
+glm1.HML35 <- Modeling(data=dfadults
+                       , d.var='HML35'
+                       , i.vars=vars.35[!vars.35 %in% c('DeforestLag2','DeforestLag3')]
+                       , aic=FALSE)
 
-logLik(step.model2b)
+step1.HML35 <- Modeling(data=dfadults
+                        , d.var='HML35'
+                        , i.vars=vars.35[!vars.35 %in% c('DeforestLag2','DeforestLag3')]
+                        , aic=TRUE)
+summary(glm1.HML35)
+summary(step1.HML35)
+car::vif(glm1.HML35)
+car::vif(step1.HML35)
 
-exp(coef(step.model2b))
-exp(cbind(OR = coef(step.model2b), confint(step.model2b)))
+exp(coef(step1.HML35))
+exp(cbind(coef = coef(step1.HML35), confint(step1.HML35)))
 
-##Deforestation 3 Lag##
-step.model3b <- stepAIC(glm.fitadults3b, direction = "both", trace = FALSE)
-summary(step.model3b)
+logLik(step1.HML35)
 
-logLik(step.model3b)
+glm.probs1 <- predict(step1.HML35,type = "response")
+glm.probs1[50:55]
+mean(glm.probs1)
 
-exp(coef(step.model3b))
-exp(cbind(OR = coef(step.model3b), confint(step.model3b)))
+glm.pred1 <- ifelse(glm.probs1 > 0.15, 1, 0)
 
-##Log Likelihood smaller the number the better, so -3 is better than -7##
+table(glm.pred1,dfadults$HML35)
 
-summary(glm.fitkids)
-summary(glm.fitadultsa)
-summary(glm.fitadultsb)
+mean(glm.pred1 == dfadults$HML35)
 
-logLik(glm.fitkids)
-logLik(glm.fitadultsa)
-logLik(glm.fitadultsb)
+# HML35 Deforestation Lag 2 Only
+glm2.HML35 <- Modeling(data=dfadults
+                       , d.var='HML35'
+                       , i.vars=vars.35[!vars.35 %in% c('DeforestLag1','DeforestLag3')]
+                       , aic=FALSE)
+
+step2.HML35 <- Modeling(data=dfadults
+                        , d.var='HML35'
+                        , i.vars=vars.35[!vars.35 %in% c('DeforestLag1','DeforestLag3')]
+                        , aic=TRUE)
+summary(glm2.HML35)
+summary(step2.HML35)
+car::vif(glm2.HML35)
+car::vif(step2.HML35)
+
+exp(coef(step2.HML35))
+exp(cbind(coef = coef(step2.HML35), confint(step2.HML35)))
+
+logLik(step2.HML35)
+
+glm.probs2 <- predict(step2.HML35,type = "response")
+glm.probs2[50:55]
+mean(glm.probs2)
+
+glm.pred2 <- ifelse(glm.probs2 > 0.15, 1, 0)
+
+table(glm.pred2,dfadults$HML35)
+
+mean(glm.pred2 == dfadults$HML35)
+
+# HML35 Deforestation Lag 3 Only
+glm3.HML35 <- Modeling(data=dfadults
+                       , d.var='HML35'
+                       , i.vars=vars.35[!vars.35 %in% c('DeforestLag1','DeforestLag2')]
+                       , aic=FALSE)
+
+step3.HML35 <- Modeling(data=dfadults
+                        , d.var='HML35'
+                        , i.vars=vars.35[!vars.35 %in% c('DeforestLag1','DeforestLag2')]
+                        , aic=TRUE)
+summary(glm3.HML35)
+summary(step3.HML35)
+car::vif(glm3.HML35)
+car::vif(step3.HML35)
+
+exp(coef(step3.HML35))
+exp(cbind(coef = coef(step3.HML35), confint(step3.HML35)))
+
+logLik(step3.HML35)
+
+glm.probs3 <- predict(step3.HML35,type = "response")
+glm.probs3[50:55]
+mean(glm.probs3)
+
+glm.pred3 <- ifelse(glm.probs3 > 0.15, 1, 0)
+
+table(glm.pred3,dfadults$HML35)
+
+mean(glm.pred3 == dfadults$HML35)
 
 
-logLik(step.model1b)
-logLik(step.model2b)
-logLik(step.model3b)
+## Final Analysis ----
+# For simplicity of the research paper, separate models
+# for each deforestation lag were not considered for the 
+# final models
+summary(glm.H22)
+summary(glm.HML32)
+summary(glm.HML35)
 
-###Analyzing all the models###
-summary(step.modelH22)
-summary(glm.fitkids1)
-summary(step.modelHML32)
-summary(glm.fitadults23a)
-summary(step.modelHML35)
-summary(glm.fitadults23b)
+logLik(glm.H22)
+logLik(glm.HML32)
+logLik(glm.HML35)
 
+summary(step.H22)
+summary(step.HML32)
+summary(step.HML35)
 
-logLik(step.modelH22)
-logLik(glm.fitkids1)
-logLik(step.modelHML32)
-logLik(glm.fitadults23a)
-logLik(step.modelHML35)
-logLik(glm.fitadults23b)
+logLik(step.H22)
+logLik(step.HML32)
+logLik(step.HML35)
 
-
-exp(coef(step.modelH22)*.01)
-exp(coef(glm.fitkids1)*.01)
-exp(coef(step.modelHML32)*.01)
-exp(coef(glm.fitadults23a)*.01)
-exp(coef(step.modelHML35)*.01)
-exp(coef(glm.fitadults23b)*.01)
+# Clear environment
+rm(list=setdiff(ls(), c('dir', 'dfkids', 'dfadults')))
 
 
-##Final Models##
-H22final <- glm(H22 ~ V128 + V129 + Temp + Precip2 + DeforestLag1 + Tana + Fianar + Mahaj + Toli + Diego, data = dfkids, family =binomial)
+## Final Models ----
+# The stepwise iterations of the models were chosen with minor tweaks
+# since they contained fewer variables and returned similar results.
+# In addition, the variables that remained in the stepwise models have
+# relatively low VIFs meaning multicollinearity was not severe.
+# Many decisions that were made during this project were related
+# to prior research findings from various scholars and 
+# potential policy requirements and feasibility.
+
+# H22
+# DeforestLag3 was dropped from the final model as it was not significant
+# and made little sense from a research standpoint
+H22final <- glm(H22 ~ V128 + V129 + Temp + Precip2 + DeforestLag1 
+                + Tana + Fianar + Mahaj + Toli + Diego
+                , data = dfkids, family = binomial)
 summary(H22final)
 
-
-HML32final <- glm(HML32 ~ HV025 + HV201 + HV214 + HV215 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Temp + Precip2 + DeforestLag2 + DeforestLag3, data = dfadults, family =binomial) 
+# HML32
+# All stepwise variables were kept in the final model
+HML32final <- glm(HML32 ~ HV025 + HV201 + HV214 + HV215 + HV253 
+                  + Tana + Fianar + Mahaj + Toli + Diego 
+                  + Temp + Precip2 + DeforestLag2 + DeforestLag3
+                  , data = dfadults, family = binomial) 
 summary(HML32final)
 
-
-HML35final <- glm(HML35 ~ HV025 + HV201 + HV214 + HV215 + HV253 + Tana + Fianar + Mahaj + Toli + Diego + Temp + Precip2 + DeforestLag2 + DeforestLag3, data = dfadults, family =binomial)
+# HML35
+# Precip and HV228 were dropped from the model to keep consistency
+# with the HML32 model. HV228 was also insignificant which provided 
+# further reasoning for its exclusion
+HML35final <- glm(HML35 ~ HV025 + HV201 + HV214 + HV215 + HV253 
+                  + Tana + Fianar + Mahaj + Toli + Diego 
+                  + Temp + Precip2 + DeforestLag2 + DeforestLag3
+                  , data = dfadults, family =binomial)
 summary(HML35final)
 
+# Checking Log Likelihoods and CIs
 logLik(H22final)
 logLik(HML32final)
 logLik(HML35final)
 
+car::vif(H22final)
+car::vif(HML32final)
+car::vif(HML35final)
 
 exp(coef(H22final)*.01)
 exp(coef(HML32final)*.01)
 exp(coef(HML35final)*.01)
 
+exp(cbind(coef = (coef(H22final)*.01), confint(H22final)))
+exp(cbind(coef = (coef(HML32final)*.01), confint(HML32final)))
+exp(cbind(coef = (coef(HML35final)*.01), confint(HML35final)))
 
-exp(cbind(OR = (coef(H22final)*.01), confint(H22final)))
-exp(cbind(OR = (coef(HML32final)*.01), confint(HML32final)))
-exp(cbind(OR = (coef(HML35final)*.01), confint(HML35final)))
 
+## Compile and Save Results ----
+save(H22final, file = paste0(dir$models,"H22.RData"))
+save(HML32final, file = paste0(dir$models,"HML32.RData"))
+save(HML35final, file = paste0(dir$models,"HML35.RData"))
 
-library(jtools)
-export_summs(H22final, HML32final, HML35final, confint = FALSE, scale = TRUE)
-export_summs(H22final, HML32final, HML35final, exp = TRUE, confint = FALSE, scale = TRUE)
+stargazer(H22final, HML32final, HML35final, type="text"
+          ,out=paste0(dir$models,"final_models.txt")
+          ,dep.var.labels=c("Fever","Rapid Test","Blood Test"))
 
-##Predictions were not necessary for this model since the research was simply trying to see if individuals in areas with higher deforestation were more likely to have malaria##
+# For this project, predictions were not necessary since the 
+# research was simply trying to see if individuals in areas 
+# with higher deforestation were more likely to have contacted
+# malaria than those in areas with lower deforestation
 
-##Dependent Variables##
+## Variable Explanations ----
+#Dependent Variables
 #Model 1 - H22 - Fever in the last 2 weeks (1 = Yes/0 = No)
 #Model 2 - HML32 - Rapid Test Results (1 = Positive/0 = Negative)
 #Model 3 - HML35 - Blood Smear Results (1 = Positive/0 = Negative)
 
-##Variable Names of Interest##
-#V128 & HV214 - Wall Construction (1 = Finished/0 = Unfinished)
-#V129 - Floor Construction (1 = Finished/0 = Unfinished)
+#Independent Variables of Interest
+#V025 - Location (1 = Urban/0 = Rural)
+#V113 - Drinking Water Source (1 = Protected/0 = Unprotected)
+#V128 - Wall Construction (1 = Finished/0 = Unfinished)
+#V129 - Roof Construction (1 = Finished/0 = Unfinished)
+#V460 - Household uses a mosquito net (1 = Yes/0 = No)
+
 #HV025 - Location (1 = Urban/0 = Rural)
 #HV201 - Drinking Water Source (1 = Protected/0 = Unprotected)
+#HV214 - Wall Construction (1 = Finished/0 = Unfinished)
 #HV215 - Roof Construction (1 = Finished/0 = Unfinished)
+#HV228 - Household uses a mosquito net (1 = Yes/0 = No)
 #HV253 - House sprayed in last 12 months (1 = Yes/0 = No)
 
+#DeforestLag1 - Percent of total forest deforested in prior year
+#DeforestLag2 - Percent of total forest deforested 2 years prior
+#DeforestLag3 - Percent of total forest deforested 3 years prior
+#Precip - Amount of precipitation
+#Precip2 - Quadratic of Preip
+#Temp - Average Temperature
+#Temp2 - Quadratic of Temp
+
+#Tana - Province of Antananarivo in Madagascar
+#Toli - Province of Toliara in Madagascar
+#Tomas - Province of Tomasina in Madagascar
+#Mahaj - Province of Mahajunga in Madagascar
+#Fianar - Province of Fianarantsoa in Madagascar
+#Diego - Province of Diego in Madagascar
 
 
+# END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

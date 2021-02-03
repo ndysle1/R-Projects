@@ -7,12 +7,12 @@
 # and can not be shared with the public at-large
 
 
-# Packages/Functions ----
+## Packages/Functions ----
 source('Malaria/functions/malaria_functions.R')
 library(haven)
 
 
-# Importing Original Data ----
+## Importing Original Data ----
 PII <- list.files(paste0(dir$project,'PII/'))
 
 for(i in PII){
@@ -31,7 +31,7 @@ for(i in PII){
 # df2016f  <- 6978 obs. of 997 variables
 
 
-# Data Transformation ----
+## Data Transformation ----
 # The 2016 surveys did not include provinces
 # Only regions were provided so provinces had to be created
 
@@ -58,7 +58,7 @@ df2016f <- df2016f %>%
 ))
 
 
-# Reducing Variables ----
+## Reducing Variables ----
 # Selecting only the needed variables
 # This removes all PII information
 
@@ -90,12 +90,13 @@ df2016f <- df2016f %>%
   select(c(kids))
 
 
-# Write to CSV ----
-write.csv(df2011f, paste0(dir$data, 'df2011f.csv'), row.names = FALSE)
-write.csv(df2013f, paste0(dir$data, 'df2013f.csv'), row.names = FALSE)
-write.csv(df2016f, paste0(dir$data, 'df2016f.csv'), row.names = FALSE)
-write.csv(df2011pr, paste0(dir$data, 'df2011pr.csv'), row.names = FALSE)
-write.csv(df2013pr, paste0(dir$data, 'df2013pr.csv'), row.names = FALSE)
-write.csv(df2016pr, paste0(dir$data, 'df2016pr.csv'), row.names = FALSE)
+## Write to CSV ----
+# Combine datasets into list
+data <- Filter(function(x) is(x, 'data.frame'), mget(ls()))
+
+# Write each dataset in list to CSV
+lapply(1:length(data), function(i) write.csv(data[[i]]
+                          , paste0(dir$data, names(data[i]), ".csv")
+                          , row.names = FALSE))
 
 # END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

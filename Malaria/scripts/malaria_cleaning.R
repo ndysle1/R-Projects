@@ -3,16 +3,16 @@
 # Malaria Project Data Cleaning #
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% #
 
-# This script cleans the datasets and prepares them for the analysis
-# and modeling scripts
+# This script cleans the datasets and prepares 
+# them for the analysis and modeling scripts
 
 
-# Packages/Functions ----
+## Packages/Functions ----
 source('Malaria/functions/malaria_functions.R')
 library(readxl)
 
 
-# Loading Data ----
+## Loading Data ----
 import <- list.files(paste0(dir$data))
 
 for(i in import){
@@ -20,12 +20,13 @@ for(i in import){
   if (grepl('.csv',i) == TRUE) {
     assign(gsub("\\..*","",i), fread(paste0(dir$data,i)))
   } else {
-    assign(gsub("\\..*","",i), read_xlsx(paste0(dir$data,i),sheet = 1))
+    assign(gsub("\\..*","",i)
+           , read_xlsx(paste0(dir$data,i),sheet = 1))
   }
 }
 
 
-# Combine Malaria Datasets ----
+## Combine Malaria Datasets ----
 dfadults <- rbind(df2011pr, df2013pr, df2016pr)
 dfkids <- rbind(df2011f, df2013f, df2016f)
 
@@ -33,14 +34,18 @@ rm(df2011pr, df2013pr, df2016pr,
    df2011f, df2013f, df2016f)
 
 
-# Merge Climate Data ----
-dfadults <- merge(x = dfadults, y = climate, by.x=c("HV006", "HV007", "SHPROV"), by.y=c("Month", "Year", "Province"))
-dfkids <- merge(x = dfkids, y = climate, by.x=c("V006", "V007", "SPROV"), by.y=c("Month", "Year", "Province"))
+## Merge Climate Data ----
+dfadults <- merge(x = dfadults, y = climate
+                  , by.x=c("HV006", "HV007", "SHPROV")
+                  , by.y=c("Month", "Year", "Province"))
+dfkids <- merge(x = dfkids, y = climate
+                , by.x=c("V006", "V007", "SPROV")
+                , by.y=c("Month", "Year", "Province"))
 
 rm(climate)
 
 
-# Merge Deforestation Data ----
+## Merge Deforestation Data ----
 # Create Lags
 deforestation <- Create_Lags(data = deforestation)
 
@@ -56,7 +61,7 @@ dfkids <- left_join(x = dfkids, y = deforestation
                     , "V007" = "Year"))
 
 
-# Data Cleaning ----
+## Data Cleaning ----
 # Removing inconclusive results and NA values from dependent variables
 dfadults <- subset(dfadults, HML35 != 6 & HML32 != 7 & HV253 != 8) 
 dfadults <- subset(dfadults, HML32 != 6)
@@ -104,11 +109,11 @@ dfadults[, HV025 := ifelse(HV025 %in% c(2),0,1)]
 
 dfkids[, V113 := ifelse(V113 %in% c(32,40,42,43,51),0,1)]
 dfkids[, V116 := ifelse(V116 %in% c(30,31,41,42,43,96,97),0,1)]
-dfkids[, V460 := ifelse(dfkids$V460 %in% c(0,3), 0,1)]
-dfkids[, V127 := ifelse(dfkids$V127 %in% c(10,11,12,21,22,23),0,1)]
-dfkids[, V128 := ifelse(dfkids$V128 %in% c(10,11,12,13,20,21,22,23,24,25),0,1)]
-dfkids[, V129 := ifelse(dfkids$V129 %in% c(10,11,12,13,20,21,22,23,24),0,1)]
-dfkids[, V025 := ifelse(dfkids$V025 %in% c(2),0,1)]
+dfkids[, V460 := ifelse(V460 %in% c(0,3), 0,1)]
+dfkids[, V127 := ifelse(V127 %in% c(10,11,12,21,22,23),0,1)]
+dfkids[, V128 := ifelse(V128 %in% c(10,11,12,13,20,21,22,23,24,25),0,1)]
+dfkids[, V129 := ifelse(V129 %in% c(10,11,12,13,20,21,22,23,24),0,1)]
+dfkids[, V025 := ifelse(V025 %in% c(2),0,1)]
 
 str(dfadults)
 str(dfkids)
@@ -128,7 +133,7 @@ summary(dfkids$V113)
 summary(dfadults$HV025)
 
 
-# Write to CSV ----
+## Write to CSV ----
 fwrite(dfadults, paste0(dir$final, 'dfadults.csv'))
 fwrite(dfkids, paste0(dir$final, 'dfkids.csv'))
 
