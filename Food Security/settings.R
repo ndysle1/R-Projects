@@ -2,17 +2,19 @@
 # Food Security Settings & Functions #
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% #
 
-# Packages ----
+## Packages ----
 library(tidyverse)
 library(data.table)
 
 
-# Directories ----
+## Directories ----
 dir <- list()
 dir$project <- 'C:/Users/User/Documents/GitHub/R-Projects/Food Security/' 
 dir$out     <- paste0(dir$project,'output/')
 dir$data    <- paste0(dir$project,'data/')
 
+
+## Functions ----
 # State Map Function
 state_map <- function(dat, var, year, change, min, max){
   
@@ -37,14 +39,13 @@ state_map <- function(dat, var, year, change, min, max){
   return(map)
 }
 
-var <- 'Perc_Insecure12'
+
 # County Map Function
 county_map <- function(dat, var, year, change, min, max){
   
   dat <- setDT(dat)
   var <- pull(dat, var)
   fips <- pull(dat,'FIPS')
-  #location <- pull(dat,'CS')
   title <- ifelse(change==FALSE, paste0(year,' US Food Insecurity by County')
                    ,'US Food Security Improvements by County (2012 - 2016)')
   dat[, text := ifelse(change==FALSE
