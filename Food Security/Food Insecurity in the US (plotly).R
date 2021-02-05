@@ -98,7 +98,8 @@ Food_insecure <- merge(x = Food_insecure
 
 ## State Maps ----
 # 2012 State Map
-S2012 <- state_map(dat=Food_insecure, var='Perc_Insecure12', year=2012)
+S2012 <- state_map(dat=Food_insecure, var='Perc_Insecure12', year=2012
+                   ,change=FALSE, min=0, max=25)
 S2012
 
 # Save to directory
@@ -106,7 +107,8 @@ htmlwidgets::saveWidget(as_widget(S2012)
                         , paste0(dir$out,'State_Insecurity_2012.html')) 
 
 # 2016 State Map
-S2016 <- state_map(dat=Food_insecure, var='Perc_Insecure16', year=2016)
+S2016 <- state_map(dat=Food_insecure, var='Perc_Insecure16', year=2016
+                   ,change=FALSE, min=0, max=25)
 S2016
 
 # Save to directory
@@ -114,20 +116,9 @@ htmlwidgets::saveWidget(as_widget(S2016)
                         , paste0(dir$out,'State_Insecurity_2016.html')) 
 
 # State Change Map
-state_change <- Food_insecure %>%
-  group_by(Code) %>%
-  summarise(Perc_Ins12 = mean(Perc_Insecure12)
-            , Perc_Ins16 = mean(Perc_Insecure16)) %>%
-  mutate(Perc_Ins = Perc_Ins16 - Perc_Ins12) %>%
-  mutate(Perc_Ins = round(Perc_Ins,2)) %>%
-  plot_geo(locationmode = 'USA-states') %>%
-  add_trace(z= ~Perc_Ins, locations = ~Code
-            , reversescale = TRUE
-            , name = '2012-2016') %>%
-  layout(geo = list(scope = 'usa'),
-         title = 'US Food Security Improvements by State <br> 2012 - 2016') %>%
-  colorbar(title = 'Change in Food<br>Insecure Population (%)')
-
+Food_insecure[, change := Perc_Insecure16-Perc_Insecure12]
+state_change <- state_map(dat=Food_insecure, var='change', year=NULL
+                   ,change=TRUE, min=NULL, max=NULL)
 state_change
 
 # Save to directory
@@ -141,6 +132,10 @@ combined_states <- subplot(S2012, S2016, state_change, nrows = 3) %>%
 
 combined_states
 
+# Save to directory
+htmlwidgets::saveWidget(as_widget(combined_states)
+                        , paste0(dir$out,'Combined_State_Insecurity.html'))
+
 
 ## County Maps ----
 # Loading JSON data
@@ -152,66 +147,40 @@ max(Food_insecure$Perc_Insecure12) #70.74
 max(Food_insecure$Perc_Insecure16) #72.27
 
 # 2012 County Map 
-C2012 <- county_map(dat, var='Perc_Insecure12',year=2012)
-C2012
+C2012 <- county_map(Food_insecure, var='Perc_Insecure12',year=2012
+                    ,change=FALSE, min=0, max=75)
 
 # Saving output as an .html
 htmlwidgets::saveWidget(as_widget(C2012)
-                        , paste(dir$out,'County_Insecurity_2012.html'))
+                        , paste0(dir$out,'County_Insecurity_2012.html'))
+
 # Open the file in default browser
-browseURL(paste('file://', dir$out,'County_Insecurity_2012.html', sep='/')) 
+browseURL(paste0('file:///', dir$out,'County_Insecurity_2012.html')) 
 
 # 2016 County Map 
-C2016 <- county_map(dat, var='Perc_Insecure16',year=2016)
-C2016
+C2016 <- county_map(Food_insecure, var='Perc_Insecure16',year=2016
+                    ,change=FALSE, min=0, max=75)
 
 # Saving output as an .html
 htmlwidgets::saveWidget(as_widget(C2016)
-                        , paste(dir$out,'County_Insecurity_2016.html'))
+                        , paste0(dir$out,'County_Insecurity_2016.html'))
+
 # Open the file in default browser
-browseURL(paste('file://', dir$out,'County_Insecurity_2016.html', sep='/')) 
+browseURL(paste0('file:///', dir$out,'County_Insecurity_2016.html')) 
 
 # County Change Map 
-A <- Food_insecure %>%
-  mutate(Perc_Ins = Perc_Insecure16 - Perc_Insecure12) %>%
-  mutate(Perc_Ins = round(Perc_Ins,2))
-
 # Checking Max & Min for Scale
-max(A$Perc_Ins) #40.61
-min(A$Perc_Ins) #-56.33
+max(Food_insecure$change) #40.61
+min(Food_insecure$change) #-56.33
 
-C <-  plot_ly() 
-
-C <- C %>% add_trace(
-  type="choroplethmapbox",
-  geojson=json_file,
-  locations=Food_insecure$FIPS,
-  z=A$Perc_Ins,
-  colorscale="Viridis",
-  reversescale = TRUE,
-  zmin=-60,
-  zmax=40,
-  hoverinfo = "text",
-  text = ~paste( Food_insecure$CS,"<br>",
-                 "Change in Food Insecure Pop.:", A$Perc_Ins,"%"),
-  marker=list(line=list(
-    width=0),
-    opacity=0.5))
-
-C <- C %>%
-  layout(
-    mapbox=list(
-      style="carto-darkmatter",
-      zoom = 2,
-      center= list(lon= -125, lat=49)))
-
-C <- C %>%
-  layout(title = "US Food Security Improvements by County (2012 - 2016)")
+county_change <- county_map(Food_insecure, var='change',year=NULL
+                    ,change=TRUE, min=-60, max=40)
 
 # Saving output as an .html
-htmlwidgets::saveWidget(as_widget(C2016)
-                        , paste(dir$out,'County_Insecurity_Improvement.html'))
+htmlwidgets::saveWidget(as_widget(county_change)
+                        , paste0(dir$out,'County_Insecurity_Improvement.html'))
+
 # Open the file in default browser
-browseURL(paste('file://', dir$out,'County_Insecurity_Improvement.html', sep='/')) 
+browseURL(paste0('file:///', dir$out,'County_Insecurity_Improvement.html')) 
 
 # END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
