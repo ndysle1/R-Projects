@@ -95,6 +95,11 @@ Food_insecure <- merge(x = Food_insecure
                        , y = us_states[ , c("State", "Code")]
                        , by = "State", all.x = TRUE)
 
+# Round all numeric columns
+Food_insecure <- Food_insecure %>% 
+  mutate_if(is.numeric, round, digits=4) %>%
+  setDT()
+
 
 ## State Maps ----
 # 2012 State Map
@@ -116,7 +121,7 @@ htmlwidgets::saveWidget(as_widget(S2016)
                         , paste0(dir$out,'State_Insecurity_2016.html')) 
 
 # State Change Map
-Food_insecure[, change := Perc_Insecure16-Perc_Insecure12]
+Food_insecure[, change := round(Perc_Insecure16-Perc_Insecure12,4)]
 state_change <- state_map(dat=Food_insecure, var='change', year=NULL
                    ,change=TRUE, min=NULL, max=NULL)
 state_change

@@ -21,9 +21,12 @@ state_map <- function(dat, var, year, change, min, max){
   var <- ensym(var)
   title1 <- ifelse(change==FALSE, paste0(year,' US Food Insecurity by State')
                    ,'US Food Security Improvements by State <br> 2012 - 2016')
-  title2 <- ifelse(change==FALSE, 'Food Insecure Pop (%)'
+  title2 <- ifelse(change==FALSE, 'Food Insecure<br>Pop (%)'
                    , 'Change in Food<br>Insecure Pop (%)')
   name <- ifelse(change==FALSE, paste0('Year ',year), '2012-2016')
+  
+  caption <- ifelse(change==FALSE, "",'NOTE: A change that is negative represents 
+                    a decrease in the number of food insecure individuals')
   
   map <- dat %>%
     group_by(Code) %>%
@@ -32,9 +35,16 @@ state_map <- function(dat, var, year, change, min, max){
     plot_geo(locationmode = 'USA-states') %>%
     add_trace(z= ~Perc_Ins, locations = ~Code, reversescale = TRUE
               , zmin = min, zmax = max, name = name) %>%
-    layout(geo = list(scope = 'usa'),
-           title = paste0(title1)) %>%
-    colorbar(title = paste0(title2)) 
+    layout(geo = list(scope = 'usa')
+           ,title = paste0(title1)
+           ,annotations = 
+             list(x = 1.1, y = -0.1, text = paste0(caption), 
+                  showarrow = F, xref='paper', yref='paper', 
+                  xanchor='right', yanchor='auto', xshift=0, yshift=0,
+                   font=list(size=10, color="dark gray"))) %>%
+    colorbar(title = paste0(title2)
+             ,thickness=10
+             ,len=.3)
   
   return(map)
 }
@@ -47,13 +57,15 @@ county_map <- function(dat, var, year, change, min, max){
   var <- pull(dat, var)
   fips <- pull(dat,'FIPS')
   title <- ifelse(change==FALSE, paste0(year,' US Food Insecurity by County')
-                   ,'US Food Security Improvements by County (2012 - 2016)')
-  dat[, text := ifelse(change==FALSE
-         , paste(CS,'<br>',
-                 'Food Insecure Pop.:', var,'%')
-         , paste(CS,'<br>',
-                 'Change in Food Insecure Pop.:', var,'%'))]
-  text <- pull(dat,'text')
+                  ,'US Food Security Improvements by County (2012 - 2016)')
+  title2 <- ifelse(change==FALSE, 'Food Insecure<br>Pop (%)'
+                   , 'Change in Food<br>Insecure Pop (%)')
+  caption <- ifelse(change==FALSE, "",'NOTE: A change that is negative represents 
+                    a decrease in the number of food insecure individuals')
+  text <- ifelse(change==FALSE, 'Food Insecure Pop.:','Change in Food<br>Insecure Pop.:')
+  dat[, text1 := paste0(text)]
+  dat[, tooltip := paste(CS,'<br>',text, var,'%')]
+  tooltip <- pull(dat,'tooltip')
   
   map <- plot_ly() 
   map <- map %>%
@@ -67,7 +79,7 @@ county_map <- function(dat, var, year, change, min, max){
       zmin=min,
       zmax=max,
       hoverinfo = 'text',
-      text = ~text,
+      text = ~tooltip,
       marker=list(line=list(
         width=0),
         opacity=0.5))
@@ -81,6 +93,16 @@ county_map <- function(dat, var, year, change, min, max){
   
   map <- map %>%
     layout(title = title)
+  
+  map <- map %>%
+    layout(annotations = 
+             list(x = 1.1, y = -0.1, text = paste0(caption), 
+                  showarrow = F, xref='paper', yref='paper', 
+                  xanchor='right', yanchor='auto', xshift=0, yshift=0,
+                  font=list(size=10, color="dark gray"))) %>%
+    colorbar(title = title2
+             ,thickness=10
+             ,len=.3)
   
   return(map)
 }
