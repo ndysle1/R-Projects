@@ -106,3 +106,5 @@ county_map <- function(dat, var, year, change, min, max){
   
   return(map)
 }
+
+# END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
