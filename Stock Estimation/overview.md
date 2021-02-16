@@ -1,4 +1,5 @@
 ## Stock Estimation Overview
+#### To view the Juptyer notebooks in this project, it is best to copy and paste the notebook URL [here](https://nbviewer.jupyter.org/).
 #### This project began with 5 datasets, each containing 200+ financial indicators that are commonly found in the 10-K filings of publicly traded companies.
 
 #### The original datasets were very messy, containing a large number of missing values and some outliers.
