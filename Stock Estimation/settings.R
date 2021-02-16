@@ -44,9 +44,51 @@ zeroVar <- function(dat) {
 
 
 DTree <- function(dat, yr){
-  tree <- imputedknn %>%
+  tree <- dat %>%
   filter(year == yr) %>%
   rpart(class ~ ., dat = ., method = "class"
         , control = rpart.control(cp = 0, maxdepth = 3))
   return(tree)
 }
+
+
+VIF_Check <- function(dat, threshold) {
+  
+  set.seed(123)
+  glm <- suppressWarnings(glm(class~., family = binomial(link = "logit")
+                              , data = dat, control = list(maxit = 10)))
+  
+  
+  a <- colnames(dat[,-'class'])
+  all <- as.data.table(cbind(a, VIF(glm)))
+  names(all) <- c('var', 'vif')
+  all[, vif := as.numeric(vif)]
+  all <- all[order(desc(vif))]
+  max <- max(all$vif)
+  print(max)
+  
+  while(max > threshold){
+    
+    set.seed(123)
+    glm <- suppressWarnings(glm(class~., family = binomial(link = "logit")
+                                , data = dat, control = list(maxit = 10)))
+    
+    
+    a <- colnames(dat[,-'class'])
+    all <- as.data.table(cbind(a, VIF(glm)))
+    names(all) <- c('var', 'vif')
+    all[, vif := as.numeric(vif)]
+    all <- all[order(desc(vif))]
+    max <- max(all$vif)
+    print(max)
+    
+    if(max < threshold) break
+    
+    remove <- all$var[1]
+    dat <- dat[, !colnames(dat) %in% remove, with=FALSE]
+  }
+  print(paste0('All VIFs are below threshold of ',threshold))
+  return(dat)
+}
+
+# END ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
