@@ -489,9 +489,9 @@ exp(cbind(coef = (coef(HML35final)*.01), confint(HML35final)))
 
 
 ## Compile and Save Results ----
-save(H22final, file = paste0(dir$models,"H22.RData"))
-save(HML32final, file = paste0(dir$models,"HML32.RData"))
-save(HML35final, file = paste0(dir$models,"HML35.RData"))
+saveRDS(H22final, file = paste0(dir$models,"H22.RDS"))
+saveRDS(HML32final, file = paste0(dir$models,"HML32.RDS"))
+saveRDS(HML35final, file = paste0(dir$models,"HML35.RDS"))
 
 stargazer(H22final, HML32final, HML35final, type="text"
           ,out=paste0(dir$models,"final_models.txt")
